@@ -113,9 +113,10 @@ if __name__ == '__main__':
 
     print(len(data_module.label_encoder.classes_))
 
-    model = ModelClassifier(model_name, len(data_module.label_encoder.classes_), data_module.batch_size)
+    model = ModelClassifier(model_name, len(data_module.label_encoder.classes_), data_module.batch_size, 7)
     trainer = pl.Trainer(
-    logger=logger,
-    callbacks=[early_stopping_callback, checkpoint_callback],
-    max_epochs=20, deterministic=True,)
+        logger=logger,
+        callbacks=[early_stopping_callback, checkpoint_callback],
+        max_epochs=20,
+        gpus=AVAIL_GPUS)
     trainer.fit(model, datamodule=data_module)
