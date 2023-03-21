@@ -22,8 +22,6 @@ class ModelClassifier(pl.LightningModule):
     h_cls = encoder_outputs.last_hidden_state[:, 0]
     outputs = self.fc1(self.relu(h_cls))
     outputs = self.fc2(outputs)
-    
-
     return outputs
 
   def training_step(self, batch, batch_idx):
@@ -31,19 +29,16 @@ class ModelClassifier(pl.LightningModule):
     loss = F.cross_entropy(logits, batch[2])
     preds = torch.argmax(logits, 1)
     accuracy = self.accuracy(preds, batch[2].long())
-
     self.log('train_loss', loss, on_step = False, on_epoch = True, prog_bar = True)
     self.log('train_accuracy', accuracy, on_step = False, on_epoch = True, prog_bar = True)
 
     return loss
-
 
   def validation_step(self, batch, batch_idx):
     logits =self(batch[:2])
     loss =F.cross_entropy(logits, batch[2])
     preds = torch.argmax(logits, 1)
     accuracy = self.accuracy(preds, batch[2].long())
-
     self.log('val_loss', loss, on_step = False, on_epoch = True, prog_bar = True)
     self.log('val_accuracy', accuracy, on_step = False, on_epoch = True, prog_bar =True)
 
@@ -54,7 +49,6 @@ class ModelClassifier(pl.LightningModule):
     loss = F.cross_entropy(logits, batch[2])
     preds = torch.argmax(logits, 1)
     accuracy = self.accuracy(preds, batch[2].long())
-
     self.log('test_loss', loss, on_step = False, on_epoch = True, prog_bar = True) 
     self.log('test_accuracy', accuracy, on_step =False, on_epoch = True, prog_bar = True)
     
@@ -63,7 +57,6 @@ class ModelClassifier(pl.LightningModule):
   def validation_epoch_end(self,validation_step_outputs):
     avg_loss = torch.stack([x['val_loss'] for x in validation_step_outputs]).mean()
     avg_accuracy =torch.stack([x['val_accuracy']for x in validation_step_outputs]).mean()
-
     self.log('val_loss', avg_loss, prog_bar = True, logger = True)
     self.log('val_accuracy',avg_accuracy, prog_bar =True, logger = True)
 
@@ -75,14 +68,12 @@ class ModelClassifier(pl.LightningModule):
 
   def setup(self, stage = None):
     train_dataloader = self.trainer.datamodule.train_dataloader()
-
     tb_size = self.batch_size * max(1, self.trainer.gpus)
     ab_size = self.trainer.accumulate_grad_batches*float(self.trainer.max_epochs)
     self.total_training_steps = (len(train_dataloader.dataset)// tb_size) // ab_size
 
   def configure_optimizers(self):
     no_decay = ['bias', 'LayerNorm.weight']
-
     optimizer_grouped_parameters = [
         {
             'params':[p for n, p in self.model.named_parmeters() if not any(nd in n for nd in no_decay)],
@@ -103,7 +94,6 @@ class ModelClassifier(pl.LightningModule):
         num_warmup_step = 0,
         num_training_steps = self.total_training_steps
     )
-
     return [optimizer],[scheduler]
 
 if __name__ == '__manin__':
@@ -124,8 +114,7 @@ if __name__ == '__manin__':
     )
     early_stopping_callback = pl.callbacks.EarlyStopping(monitor='val_loss', patience=5)
 
-    print(len(data_module.label_encoder.classes_))
-
+    #print(len(data_module.label_encoder.classes_))
     model = ModelClassifier(model_name, len(data_module.label_encoder.classes_), data_module.batch_size)
     trainer = pl.Trainer(
     logger=logger,
