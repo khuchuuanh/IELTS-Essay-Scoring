@@ -1,13 +1,10 @@
 from lib import *
+import wandb
 
-data_path = 'D:/My Projects/IELTS_Scoring/'
-name_df = 'data_split'
-data_frame = pd.read_csv(data_path + name_df + '.csv')
 
 class CustomerDataset(pl.LightningDataModule):
     def __init__(self, model_name, data_frame, text_field : list, label_field = str, max_len= 512,batch_size = 32, remove_special_characters = False, **kwargs):
         super().__init__()
-
         self.model_name = model_name
         self.data_frame = data_frame
         self.text_field = text_field
@@ -52,16 +49,6 @@ class CustomerDataset(pl.LightningDataModule):
             sampler = RandomSampler(self.test_dataset),
             num_workers= 2
         )
-    
-    def preprocess_text(self, text) -> str:
-        replace_chars = list(string.punctuation.replace("'", ""))
-        if self.remove_special_characters:
-            for char in replace_chars:
-                text = text.replace(char, " ")
-        else:
-            for char in replace_chars:
-                text = text.replace(char, " " + char + " ")
-        return " ".join(text.lower().split())
 
     def convert_to_features(self,df) -> TensorDataset:
         sentences = df.input.values
@@ -69,7 +56,6 @@ class CustomerDataset(pl.LightningDataModule):
 
         features = [[int(i) for i in features.split()] for feature in data_frame.Feature.values]
         features = torch.tensor(features)
-
         encoder = self.tokenizer.batch_encode_plus(
             sentences.tolist(),
             add_special_tokens = True,
@@ -79,18 +65,20 @@ class CustomerDataset(pl.LightningDataModule):
             return_attention_mask  = True,
             return_tensor = 'pt' 
         )
-
         input_ids = encoder['input_ids']
         attention_mask = encoder['attention_mask']
-
         labels =torch.tensor(self.label_encoder.transform(list(labels)))
-        return TensorDataset(input_ids, attention_mask, features, labels)
+
+        return TensorDataset(input_ids, attention_mask, labels)
 
 if __name__ == "__main__":
-    model_name = 'distilbert-base-uncased'
+    data_path = 'D:/My Projects/IELTS_Scoring/'
+    name_df = 'process_data'
+    data_frame = pd.read_csv(data_path + name_df + '.csv')
+    model_name = 'bert-base-uncased'
     text_field = ['Text']
-    label_field = 'Grammar'
-    data_module = CustomerDataset(model_name, data_frame, text_field, label_field,max_len = 512, batch_size=32, remove_special_characters= True)
+    label_field = 'LEXICAL'
+    data_module = CustomerDataset(model_name, data_frame, text_field, label_field,max_len = 512, batch_size=3)
     data_module.setup('fit')
     test = next(iter(data_module.train_dataloader()))
-    test[0], test[1], test[2], test[3]
+    test[0], test[1], test[2]
