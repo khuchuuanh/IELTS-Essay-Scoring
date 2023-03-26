@@ -47,3 +47,34 @@ class CustomDataset(pl.LightningDataModule):
         shuffle = False,
         num_workers=20
     )
+
+  def convert_to_features(self, df) -> TensorDataset:
+    setences = df.input.values
+    labels = df.label.values
+
+    encoder = self.tokenizer.batch_encode_plus(
+      setences.tolist(),
+      add_special_tokens = True,
+      max_length = self.max_len,
+      padding = 'max_length',
+      truncation = True,    
+      return_attention_mask = True,
+      return_tensors = 'pt'
+      )
+    input_ids = encoder['input_ids']
+    attention_mask = encoder['attention_mask']
+    labels = torch.tensor(self.label_encoder.transform(list(labels)))
+
+    return TensorDataset(input_ids, attention_mask, labels)
+
+if __name__ == '__main__':
+    data_frame = pd.read_csv('process_data.csv', index_col=0)
+    model_name  = 'bert-base-uncased'
+    text_field = 'Essay'
+    label_field = 'GRAMMAR'
+    max_len = 512
+    batch_size = 32
+    data_module = CustomDataset(model_name, data_frame, text_field, label_field, max_len =max_len, batch_size = batch_size)
+    data_module.setup('fit')
+    test = next(iter(data_module.val_dataloader()))
+    print(test[0], test[1], test[2])
