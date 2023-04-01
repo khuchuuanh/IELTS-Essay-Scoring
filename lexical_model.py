@@ -40,3 +40,55 @@ class ModelClassifier(pl.LightningModule):
         )
         self.precision_micro_metric = torchmetrics.Precision(average="micro")
         self.recall_micro_metric = torchmetrics.Recall(average="micro")
+
+    def forward(self, input_ids, attention_mask):
+        encoder_outputs = self.model(input_ids = input_ids, attention_mask = attention_mask)['last_hidden_state']
+        gru_output, _ = self.gru(encoder_outputs)
+        gru_output = self.relu(gru_output)
+        gru_output, _ = self.gru2(gru_output)
+        gru_output = self.relu(gru_output)
+        avg_pooled = torch.mean(gru_output, 1)
+        outputs = self.relu(self.fc2(avg_pooled))
+
+        return outputs
+
+    def training_step(self, batch, batch_idx):
+        logits = self(batch[0], batch[1])
+        loss = F.cross_entropy(logits, batch[2])
+        preds = torch.argmax(logits, 1)
+        labels = batch[2].long()
+        accuracy = self.accuracy(preds, batch[2].long())
+        precision_macro = self.precision_macro_metric(preds, labels)
+        recall_macro = self.recall_macro_metric(preds, labels)
+        precision_micro = self.precision_micro_metric(preds, labels)
+        recall_micro = self.recall_micro_metric(preds, labels)
+        f1 = self.f1_metric(preds, labels)
+
+        self.log('train/loss', loss, on_step = True, on_epoch = False, prog_bar = True)
+        self.log('train/accuracy', accuracy, on_step = False, on_epoch = True, prog_bar=True)
+        self.log("train/precision_macro", precision_macro, prog_bar=True)
+        self.log("train/recall_macro", recall_macro, prog_bar=True)
+        self.log("train/precision_micro", precision_micro, prog_bar=True)
+        self.log("train/recall_micro", recall_micro, prog_bar=True)
+        self.log("train/f1", f1, prog_bar=True)
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        logits =self(batch[0], batch[1])
+        loss =F.cross_entropy(logits, batch[2])
+        preds = torch.argmax(logits, 1)
+        labels = batch[2].long()
+        accuracy = self.accuracy(preds, batch[2].long())
+        precision_macro = self.precision_macro_metric(preds, labels)
+        recall_macro = self.recall_macro_metric(preds, labels)
+        precision_micro = self.precision_micro_metric(preds, labels)
+        recall_micro = self.recall_micro_metric(preds, labels)
+        f1 = self.f1_metric(preds, labels)
+        self.log('valid/loss', loss, on_step = False, on_epoch = True, prog_bar= True)
+        self.log('valid/accuracy', accuracy, on_step = False, on_epoch = True,prog_bar= True)
+        self.log("valid/precision_macro", precision_macro, on_step = False, on_epoch = True,prog_bar=True)
+        self.log("valid/recall_macro", recall_macro, prog_bar=True)
+        self.log("valid/precision_micro", precision_micro, prog_bar=True)
+        self.log("valid/recall_micro", recall_micro, prog_bar=True)
+        self.log("valid/f1", f1, prog_bar=True)
+        return {'labels': batch[2], 'logits' : logits}
