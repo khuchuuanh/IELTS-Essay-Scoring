@@ -92,3 +92,50 @@ class ModelClassifier(pl.LightningModule):
         self.log("valid/recall_micro", recall_micro, prog_bar=True)
         self.log("valid/f1", f1, prog_bar=True)
         return {'labels': batch[2], 'logits' : logits}
+
+    def validation_epoch_end(self,outputs):
+        labels = torch.cat([x["labels"] for x in outputs])
+        logits = torch.cat([x["logits"] for x in outputs])
+
+        self.logger.experiment.log(
+            {
+                "conf": wandb.plot.confusion_matrix(
+                    probs=logits.cpu().numpy(), y_true=labels.cpu().numpy()
+                )
+            }
+        )
+
+    def setup(self, stage = None):
+        train_dataloader = self.trainer.datamodule.train_dataloader()
+
+        tb_size = self.batch_size * max(1, self.trainer.gpus)
+        ab_size = self.trainer.accumulate_grad_batches*float(self.trainer.max_epochs)
+        self.total_training_steps = (len(train_dataloader.dataset)// tb_size) // ab_size
+
+    def configure_optimizers(self):
+
+        no_decay = ['bias', 'LayerNorm.weight']
+
+        optimizer_grouped_parameters = [
+            {
+            'params': [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay)],
+            'weight_decay':0.01
+            },
+            {
+            'params': [p for n, p in self.named_parameters() if any(nd in n for nd in no_decay)],
+            'weight_decay': 0.0
+            }]
+
+        optimizer = AdamW(optimizer_grouped_parameters,
+            lr=self.learning_rate,
+            eps=1e-5
+            )
+
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=0,
+            num_training_steps=self.total_training_steps
+            )
+
+        return [optimizer], [scheduler]
+    
