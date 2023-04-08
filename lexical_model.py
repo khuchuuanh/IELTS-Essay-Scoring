@@ -9,6 +9,7 @@ from transformers import AutoModel
 from transformers import AdamW
 from transformers import get_linear_schedule_with_warmup
 import torchmetrics
+from customdata_lexical import *
 class ModelClassifier(pl.LightningModule):
     def __init__(self, model_name, num_labels, batch_size, learning_rate = 2e-5):
         super().__init__()
@@ -138,4 +139,35 @@ class ModelClassifier(pl.LightningModule):
             )
 
         return [optimizer], [scheduler]
-    
+
+if __name__ == '__manin__':
+
+    AVAIL_GPUS = min(1, torch.cuda.device_count())
+    data_frame = pd.read_csv('process_data.csv', index_col=0)
+    model_name  = 'bert-base-uncased'
+    text_field = 'Essay'
+    label_field = 'GRAMMAR'
+    batch_size = 16
+    max_len = 512
+
+    data_module = CustomDataset(model_name, data_frame, text_field, label_field, max_len =512, batch_size = batch_size)
+    data_module.setup('fit')
+
+    #logger = WandbLogger(project="GRAMMAR")
+
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(
+        dirpath = './save_model/',
+        filename = 'best_checkpoint_GRAMMAR',
+        save_top_k = 1,
+        verbose = True,
+        monitor = 'val/loss',
+        mode = 'min'
+    )
+
+    model = ModelClassifier(model_name, len(data_module.label_encoder.classes_), data_module.batch_size)
+    trainer = pl.Trainer(
+        #logger = logger,
+        callbacks = [checkpoint_callback],
+        max_epochs =50,
+        gpus = AVAIL_GPUS)
+    trainer.fit(model, datamodule = data_module)
