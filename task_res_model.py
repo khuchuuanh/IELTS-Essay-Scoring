@@ -97,7 +97,7 @@ class ModelClassifier(pl.LightningModule):
     return [optimizer],[scheduler]
 
 if __name__ == '__manin__':
-    model_name  = 'distilbert-base-uncased'
+    model_name  = 'bert-base-uncased'
     text_field = 'input'
     label_field = 'TASK '
     data_frame = pd.read_csv('D:/My Projects/IELTS_Scoring/data_split.py')
